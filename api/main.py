@@ -101,14 +101,20 @@ async def login(request: LoginRequest):
 async def verify(username: str = Depends(verify_token)):
     return {"username": username, "authenticated": True}
 
+# ---------------------------------------------------------
+# UPDATED: Authentication Removed for Deployment/Integration
+# ---------------------------------------------------------
 @app.post("/api/predict")
-async def predict(request: TickerRequest, username: str = Depends(verify_token)):
+async def predict(request: TickerRequest):
     """
-    Endpoint to get stock predictions using LSTM with attention mechanism
+    Endpoint to get stock predictions using LSTM with attention mechanism.
+    Authentication disabled to allow internal access from Node.js backend.
     """
     try:
         from prediction_service import get_stock_predictions
         lookback = request.lookback if request.lookback else 60
+        
+        # Call the prediction logic
         result = get_stock_predictions(request.ticker.upper(), lookback=lookback, epochs=15)
         
         if "error" in result:
@@ -119,6 +125,8 @@ async def predict(request: TickerRequest, username: str = Depends(verify_token))
         
         return result
     except Exception as e:
+        # Log error to console for Render logs
+        print(f"❌ Prediction Error: {str(e)}") 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Prediction failed: {str(e)}"
@@ -130,4 +138,5 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+    # 0.0.0.0 is required for Render/Docker environments
     uvicorn.run(app, host="0.0.0.0", port=8000)
